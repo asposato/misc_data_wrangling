@@ -1,0 +1,49 @@
+---
+title: "merge allReadCounts files"
+author: "Andy Sposato"
+output: pdf_document
+---
+
+# The purpose of this script is to merge .allReadCounts files that are derived from the same animal. This would be desired if you want to generate an hmid plot for a single animal that was sequenced across multiple samples. We can't just bind the dataframes on top of each other because each subsample file will have it's own values for proportions and corresponding barcode rank. In this script, we will recalculate proportion for a combined .allReadCounts file.
+
+```{r}
+library(dplyr)
+```
+
+
+```{r read in the .allReadCounts files}
+statsx1 <-read.table(file = "/Users/andysposato/Desktop/Gagnon/CHPC_scripts/17633Rx1.allReadCounts", sep = "\t", header = T)
+statsx2 <-read.table(file = "/Users/andysposato/Desktop/Gagnon/CHPC_scripts/17633Rx2.allReadCounts", sep = "\t", header = T)
+```
+
+```{r bind all reads}
+# take the event and count columns only from each file
+# array and proportion will need to be rewritten
+statsx1_fromallReads <- statsx1[,c(1,3)]
+statsx2_fromallReads <- statsx2[,c(1,3)]
+#stack data frames 
+stats_both <- rbind(statsx1_fromallReads, statsx2_fromallReads)
+```
+
+```{r write calculate proportion function}
+# how long is stats_both? 
+stats_both$array <- 0:(length(stats_both$event)-1) # minus 1 for header
+# how many total counts are there? sum(stats_both$count)
+calc_prop <- function(count) {
+  prop <- count/(sum(stats_both$count))
+}
+```
+
+```{r calculate new proportion for each barcode in the combined file}
+stats_both$proportion <- as.character(lapply(stats_both$count, calc_prop))
+```
+
+```{r build new dataframe in .allReadCounts format}
+# these are all the columns needed, but in the wrong order - make new data frame in correct order of columns (event, array, count, proportion)
+stats_both_fixed <- as.data.frame(stats_both %>% select(event, array, count, proportion))
+```
+
+```{r write the new file}
+write.table(stats_both_fixed, file = "/Users/andysposato/Desktop/Gagnon/CHPC_scripts/17633Rx1andx2.allReadCounts", sep = "\t", quote = F, row.names = F)
+```
+
